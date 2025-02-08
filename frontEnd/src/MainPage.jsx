@@ -375,7 +375,7 @@ const handleSubmit = async () => {
   return (
     <div className="chat-container">
       <div className="chat-wrapper">
-        <h1 className="chat-title">Buyer-Seller Chat</h1>
+        <h1 className="chat-title">SwiftSettle Chat</h1>
 
         <div className="chat-messages">
           {chat.map((msg, index) => (
