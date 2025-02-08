@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -14,6 +14,7 @@ from utils.OpenAIModel import OpenAIModel
 from utils.MarkitdownTool import MarkItDownConverter
 from utils.FraudDetection import FraudDetection
 from utils.OCRScanner import OCRScanner
+from utils.DisputeResolutionPipeline import DisputeResolutionPipeline  # Import your pipeline class
 
 app = FastAPI()
 
@@ -31,29 +32,35 @@ tool_agent = ToolsSelectionAgent()
 openai_model = OpenAIModel()
 
 # -------------------------------
-# Pydantic Models for Requests and Response
+# Pydantic Models for Requests and Responses
 # -------------------------------
+
 class EmbeddingRequest(BaseModel):
     text: str
 
 class ToolSelectionRequest(BaseModel):
     context: str
     available_tools: dict  # e.g., {"getBuyerBankStatement": "description", ...}
-    
-    # Request model for fraud detection
+
 class FraudDetectionRequest(BaseModel):
     text: str
     warning_count: int = 0
 
-# Response model for fraud detection
 class FraudDetectionResponse(BaseModel):
     result: str  # "No Fraud" or "Fraud Detected"
     warning_count: int
     escalate: bool
 
+# Response model for dispute resolution
+class DisputeResolutionResponse(BaseModel):
+    resolution: str
+    selected_tool: str
+    escalate: bool
+
 # -------------------------------
 # FastAPI Endpoints
 # -------------------------------
+
 @app.post("/embed")
 async def embed_text(request: EmbeddingRequest):
     """
@@ -146,7 +153,7 @@ async def fraud_detection_firewall(request: FraudDetectionRequest):
         response_text, warnings, escalate = FraudDetection.process_user_input(
             user_input=request.text,
             warning_count=request.warning_count,
-            llm=lambda prompt: prompt  # Replace with your LLM integration
+            llm=openai_model.llm  # Use your actual LLM integration
         )
         # Determine the result based on the response text
         result = "Fraud Detected" if response_text.startswith("Warning:") else "No Fraud"
@@ -163,6 +170,50 @@ async def select_tool(request: ToolSelectionRequest):
         selected_tool = tool_agent.select_tool(request.context, request.available_tools)
         return {"selected_tool": selected_tool}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/resolve_dispute", response_model=DisputeResolutionResponse)
+async def resolve_dispute_endpoint(
+    conversation_chain: str = Form(...),
+    pdf_file1: UploadFile = File(...),
+    pdf_file2: UploadFile = File(...)
+):
+    """
+    Endpoint to process the dispute using DisputeResolutionPipeline.
+    """
+    temp_file1 = f"temp_{pdf_file1.filename}"
+    temp_file2 = f"temp_{pdf_file2.filename}"
+    try:
+        # Save the uploaded PDF files temporarily
+        with open(temp_file1, "wb") as f1:
+            content1 = await pdf_file1.read()
+            f1.write(content1)
+        
+        with open(temp_file2, "wb") as f2:
+            content2 = await pdf_file2.read()
+            f2.write(content2)
+        
+        # Instantiate the DisputeResolutionPipeline
+        pipeline = DisputeResolutionPipeline(model="gpt-4")
+        
+        # Process the dispute
+        result = pipeline.process_dispute(conversation_chain, temp_file1, temp_file2)
+        
+        # Clean up the temporary files
+        os.remove(temp_file1)
+        os.remove(temp_file2)
+        
+        return DisputeResolutionResponse(
+            resolution=result["resolution"],
+            selected_tool=result["selected_tool"],
+            escalate=result.get("escalate", False)
+        )
+    except Exception as e:
+        # Clean up the temporary files if they exist
+        if os.path.exists(temp_file1):
+            os.remove(temp_file1)
+        if os.path.exists(temp_file2):
+            os.remove(temp_file2)
         raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------------------

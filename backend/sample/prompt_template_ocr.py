@@ -24,8 +24,7 @@ def resolve_dispute(dispute_category: str, proof_1: str, proof_2: str, llm):
     Follow these steps to analyze the situation and determine a fair resolution:
 
     1. Initial Assessment:
-        a. Determine if the provided proofs of transfer are in the correct format (video or PDF). If not, request the user to provide the correct format. Photos are NOT accepted.
-        b. Based on the dispute category, specify what information is most vital in each of the proofs.
+        a. Based on the dispute category, specify what information is most vital in each of the proofs.
             *   **Buyer not paid:** The validity of the user 2 is more crucial here.
             *   **Seller not released items:** The validity of the user 1 is more crucial here.
             *   **Buyer underpaid:** both proofs need to be cross-checked here
@@ -45,7 +44,7 @@ def resolve_dispute(dispute_category: str, proof_1: str, proof_2: str, llm):
 
     3. Resolution Determination: Based on your analysis, determine the appropriate resolution:
 
-        a. Scenario A: Both proofs are valid, in the correct format (video or PDF), and all details match the dispute category.
+        a. Scenario A: Both proofs are valid and all details match the dispute category.
             * If 'Buyer not paid': "The proof provided by seller(User 2) is validated. Releasing funds to the buyer, User 1."
             * If 'Seller not released items': "The proof provided by buyer(User 1) is validated. Releasing funds to the Seller (releasing the items), User 2."
             * If 'Buyer underpaid': "Underpayment confirmed, the buyer, User 1, needs to pay the remaining amount."
@@ -60,15 +59,11 @@ def resolve_dispute(dispute_category: str, proof_1: str, proof_2: str, llm):
             * Resolution: Explain which proof is considered valid and why. Investigate the other proof for potential fraud. Recommend steps for the party with the invalid proof.
             * Escalation Trigger: Include the following statement at the end of your response: "Escalating to a human administrator, Invalid Documents"
 
-        d. Scenario D: One or both proofs are not in the correct format (not video or PDF).
-            * Resolution: Explain what is wrong. Request that the user provide evidence with the correct format and valid documents again.
-            * Escalation Trigger: Include the following statement at the end of your response: "Escalating to a human administrator, Correct format Required"
-
-        e. Scenario E: One or more information is missing.
+        d. Scenario D: One or more information is missing.
             * Resolution: State what are those information. Request that the user provide again those requirements.
             * Escalation Trigger: Include the following statement at the end of your response: "Escalating to a human administrator, Requirement Missing"
 
-        f. Scenario F: There is evidence of fraud or forgery detected in one or both proofs.
+        e. Scenario E: There is evidence of fraud or forgery detected in one or both proofs.
             * Resolution: "Evidence of fraud/forgery detected in [specify which document]. Taking immediate action to protect the platform and its users. Freezing funds and accounts related to this transaction"
             * Escalation Trigger: Include the following statement at the end of your response: "Escalating to a human administrator, Fraud / Forgery"
 
