@@ -3,8 +3,8 @@ import Image from "next/image"; // Add Next.js Image component
 // Import CSS module instead of direct CSS
 import styles from "../styles/MainPage.module.css";
 // Update image imports to use public directory
-import boyImage from "../../assets/boy.png";
-import girlImage from "../../assets/girl.png";
+// import boyImage from "../../assets/boy.png";
+// import girlImage from "../../assets/girl.png";
 
 const MainPage = () => {
   const [message, setMessage] = useState("");
@@ -158,7 +158,7 @@ const MainPage = () => {
   };
 
   return (
-    <div className={styles["chat-container"]}>
+    <div className={styles.chatContainer}>
       <div className={styles["chat-wrapper"]}>
         <h1 className={styles["chat-title"]}>Two-Person Chat</h1>
 
@@ -178,9 +178,9 @@ const MainPage = () => {
                 <Image
                   src={
                     msg.user === "User 1"
-                      ? boyImage
+                      ? "/assets/boy.png"
                       : msg.user === "User 2"
-                      ? girlImage
+                      ? "/assets/girl.png"
                       : null
                   }
                   alt={
