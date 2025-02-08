@@ -105,19 +105,84 @@ const MainPage = () => {
     setMessage("");
   };  
 
-  const activateAI = () => {
+  const activateAI = async () => { // Make this async
     setIsAIActive(true);
-    setChat([
-      ...chat,
-      { user: "AI", text: "Hello, since there's a conflict between both of you, I will help resolve it." },
-      { user: "AI", text: "Buyer, please upload your PDF document for review.", type: "request-pdf", forUser: "Buyer" }
-    ]);
-    setCurrentStep('buyerUpload');
     
-    // Log the conversations when AI is activated
-    console.log("Buyer Conversation:", buyerConversation);
-    console.log("Seller Conversation:", sellerConversation);
-    //sending to main.py, conversation_chain: str = Form(...), 
+    // Create conversation chain string
+    const conversationChain = JSON.stringify([
+        ...buyerConversation,
+        ...sellerConversation
+    ]);
+
+    try {
+        // Call conversation analysis endpoint
+        const analysisResponse = await fetch('http://localhost:8000/analyze_conversation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ context: conversationChain }),
+        });
+
+        if (!analysisResponse.ok) {
+            throw new Error('Analysis failed');
+        }
+
+        const analysisResult = await analysisResponse.json();
+
+        let aiMessages = [];
+        switch(analysisResult.selected_tool) {
+            case 'refundBuyer':
+                aiMessages = [
+                    { 
+                        user: "AI", 
+                        text: "Based on our conversation analysis, a refund will be processed for the buyer. The order will be cancelled."
+                    }
+                ];
+                break;
+
+            case 'transactionIssues':
+                aiMessages = [
+                    { 
+                        user: "AI", 
+                        text: "Hello, since there's a conflict between both of you, I will help resolve it." 
+                    },
+                    { 
+                        user: "AI", 
+                        text: "Buyer, please upload your PDF document for review.", 
+                        type: "request-pdf", 
+                        forUser: "Buyer" 
+                    }
+                ];
+                setCurrentStep('buyerUpload');
+                break;
+
+            case 'neutralIssue':
+                aiMessages = [
+                    { 
+                        user: "AI", 
+                        text: "No discernible dispute found. Returning to normal chat mode." 
+                    }
+                ];
+                // Disable AI mode for neutral issues
+                setIsAIActive(false);
+                break;
+                
+        }
+
+        setChat(prevChat => [
+            ...prevChat,
+            ...aiMessages
+        ]);
+
+    } catch (error) {
+        console.error("AI activation error:", error);
+        setChat(prevChat => [
+            ...prevChat,
+            { 
+                user: "AI", 
+                text: "Error analyzing conversation. Please try again." 
+            }
+        ]);
+    }
   };
 
   const handleFileUpload = (event, user) => {

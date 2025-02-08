@@ -14,7 +14,8 @@ from utils.OpenAIModel import OpenAIModel
 from utils.MarkitdownTool import MarkItDownConverter
 from utils.FraudDetection import FraudDetector
 from utils.OCRScanner import OCRScanner
-from utils.DisputeResolutionPipeline import DisputeResolutionPipeline  # Import your pipeline class
+from utils.DisputeResolutionPipeline import DisputeResolutionPipeline
+from utils.ConversationAnalysisAgent import ConversationAnalysisAgent
 
 app = FastAPI()
 
@@ -30,6 +31,7 @@ app.add_middleware(
 # Instantiate the imported classes
 tool_agent = ToolsSelectionAgent()
 openai_model = OpenAIModel()
+agent = ConversationAnalysisAgent()
 
 # -------------------------------
 # Pydantic Models for Requests and Responses
@@ -177,6 +179,25 @@ async def analyze_text(request: FraudDetectionRequest):
             status_code=500,
             detail=f"Analysis error: {str(e)}"
         )
+
+# Request Model
+class ConversationAnalysisRequest(BaseModel):
+    context: str
+
+# Response Model
+class ConversationAnalysisResponse(BaseModel):
+    selected_tool: str
+
+@app.post("/analyze_conversation", response_model=ConversationAnalysisResponse)
+async def analyze_conversation(request: ConversationAnalysisRequest):
+    """
+    Endpoint to analyze a conversation and select the appropriate tool.
+    """
+    try:
+        selected_tool = agent.analyze_conversation(request.context)
+        return {"selected_tool": selected_tool}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/select_tool")
 async def select_tool(request: ToolSelectionRequest):
