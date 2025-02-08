@@ -2,14 +2,14 @@ from dotenv import load_dotenv
 import openai
 from typing import Dict
 import os
-from utils.ToolsSelectionAgent import ToolsSelectionAgent
-from utils.OCRScanner import OCRScanner
+from ToolsSelectionAgent import ToolsSelectionAgent
+from OCRScanner import OCRScanner
 
 # -------------------------
 # Pipeline Class
 # -------------------------
 class DisputeResolutionPipeline:
-    def __init__(self, model: str = "gpt-4"):
+    def __init__(self, model: str = "gpt-4o"):
         """
         Initializes the dispute resolution pipeline with:
          - An LLM callable for dispute resolution.
@@ -32,7 +32,7 @@ class DisputeResolutionPipeline:
             "notifyAndEscalate": "Automate notifications and escalate cases that require human intervention.",
         }
 
-    def resolve_dispute(self, conversation_chain: str, proof_1: str, proof_2: str) -> str:
+    def resolve_dispute(self, conversation_chain: str, proof_buyer: str, proof_seller: str) -> str:
         """
         Resolves a P2P dispute by analyzing proofs of transaction.
 
@@ -49,14 +49,14 @@ You are an Experienced Payment Fraud Analyst. You investigate suspicious transac
 
 Here's the information you have:
 
-* Conversation Chain between User 1 and User 2:
+* Conversation Chain between Buyer and Seller:
 {conversation_chain}
 
-* Proof of Transfer (User 1):
-{proof_1}
+* Proof of Transfer (Buyer):
+{proof_buyer}
 
-* Proof of Transfer (User 2):
-{proof_2}
+* Proof of Transfer (Seller):
+{proof_seller}
 
 Follow these steps to analyze the situation and determine a fair resolution:
 
@@ -115,12 +115,12 @@ Action Taken and Resolution:
 """
         prompt = prompt_template.format(
             conversation_chain=conversation_chain,
-            proof_1=proof_1,
-            proof_2=proof_2
+            proof_buyer=proof_buyer,
+            proof_seller=proof_seller
         )
 
         # Call the LLM to generate the resolution
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": "You are an experienced payment fraud analyst."},
@@ -129,7 +129,7 @@ Action Taken and Resolution:
             temperature=0.7,
             max_tokens=500
         )
-        resolution = response.choices[0].message['content'].strip()
+        resolution = response.choices[0].message.content.strip()
         return resolution
 
     def process_dispute(self, conversation_chain: str, pdf_file1: str, pdf_file2: str) -> Dict[str, str]:
@@ -165,7 +165,7 @@ Action Taken and Resolution:
 # -------------------------
 if __name__ == "__main__":
     # Instantiate the pipeline
-    pipeline = DisputeResolutionPipeline(model="gpt-4")
+    pipeline = DisputeResolutionPipeline(model="gpt-4o")
 
     # Define the conversation chain and PDF file paths
     conversation_chain = """
@@ -175,8 +175,8 @@ User 1: Here's my bank statement showing the transfer.
 User 2: That's strange; I don't see it on my end.
 """
 
-    pdf_file1 = "/path/to/proof1.pdf"  # Replace with actual path for Proof of Transaction 1 (User 1)
-    pdf_file2 = "/path/to/proof2.pdf"  # Replace with actual path for Proof of Transaction 2 (User 2)
+    pdf_file1 = "/home/ssyok/Documents/Hackathons/DerivAIHack25/backend/data/GXBank Transaction buyer fake.pdf"  # Replace with actual path for Proof of Transaction 1 (User 1)
+    pdf_file2 = "/home/ssyok/Documents/Hackathons/DerivAIHack25/backend/data/GXBank Transaction seller.pdf"  # Replace with actual path for Proof of Transaction 2 (User 2)
 
     # Process the dispute
     result = pipeline.process_dispute(conversation_chain, pdf_file1, pdf_file2)
