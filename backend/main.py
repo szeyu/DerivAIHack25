@@ -12,7 +12,8 @@ load_dotenv()
 from utils.ToolsSelectionAgent import ToolsSelectionAgent
 from utils.OpenAIModel import OpenAIModel
 from utils.MarkitdownTool import MarkItDownConverter
-
+from utils.FraudDetection import FraudDetection
+from utils.OCRScanner import OCRScanner
 
 app = FastAPI()
 
@@ -30,7 +31,7 @@ tool_agent = ToolsSelectionAgent()
 openai_model = OpenAIModel()
 
 # -------------------------------
-# Pydantic Models for Requests
+# Pydantic Models for Requests and Response
 # -------------------------------
 class EmbeddingRequest(BaseModel):
     text: str
@@ -38,6 +39,17 @@ class EmbeddingRequest(BaseModel):
 class ToolSelectionRequest(BaseModel):
     context: str
     available_tools: dict  # e.g., {"getBuyerBankStatement": "description", ...}
+    
+    # Request model for fraud detection
+class FraudDetectionRequest(BaseModel):
+    text: str
+    warning_count: int = 0
+
+# Response model for fraud detection
+class FraudDetectionResponse(BaseModel):
+    result: str  # "No Fraud" or "Fraud Detected"
+    warning_count: int
+    escalate: bool
 
 # -------------------------------
 # FastAPI Endpoints
@@ -94,6 +106,52 @@ async def convert_pdf(file: UploadFile = File(...)):
     except Exception as e:
         if os.path.exists(temp_file):
             os.remove(temp_file)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ocrscanner")
+async def ocrscanner(file: UploadFile = File(...)):
+    """
+    Endpoint to convert an uploaded PDF file to Markdown text using OCRScanner.
+    This endpoint uses the OCRScanner class which first converts the PDF pages to images 
+    (using PyMuPDF, hence avoiding Poppler) and then uses Gemini for OCR extraction.
+    """
+    temp_file = f"temp_{file.filename}"
+    try:
+        # Save the uploaded PDF file temporarily
+        with open(temp_file, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        # Instantiate OCRScanner and perform the conversion
+        scanner = OCRScanner()
+        markdown_text = scanner.convert_pdf_to_markdown(temp_file)
+        
+        # Clean up the temporary file
+        os.remove(temp_file)
+        return {"markdown": markdown_text}
+    
+    except Exception as e:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/fraud_detection_firewall", response_model=FraudDetectionResponse)
+async def fraud_detection_firewall(request: FraudDetectionRequest):
+    """
+    API endpoint that evaluates user input using the FraudDetection system.
+    Returns "Fraud Detected" if sensitive content is found, otherwise "No Fraud".
+    """
+    try:
+        # In this example, the llm function is a no-op lambda. Replace with your actual LLM call if needed.
+        response_text, warnings, escalate = FraudDetection.process_user_input(
+            user_input=request.text,
+            warning_count=request.warning_count,
+            llm=lambda prompt: prompt  # Replace with your LLM integration
+        )
+        # Determine the result based on the response text
+        result = "Fraud Detected" if response_text.startswith("Warning:") else "No Fraud"
+        return FraudDetectionResponse(result=result, warning_count=warnings, escalate=escalate)
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/select_tool")
