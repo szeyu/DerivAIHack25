@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
 import MainPage from './MainPage';
-
+import Admin from './Admin';
+import './App.css';
 
 function App() {
-  
   return (
-    <div>
-      <MainPage />
-    </div>
+    <Router>
+      <div className="app">
+        <Navbar />
+        <div className="content">
+          <Routes>
+            <Route path="/" element={<MainPage />} />
+            <Route path="/admin" element={<Admin />} />
+          </Routes>
+        </div>
+      </div>
+    </Router>
   );
 }
 
