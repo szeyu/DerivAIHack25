@@ -20,7 +20,7 @@ class OpenAIModel:
         :param text: The text to embed.
         :return: A list of floating point numbers representing the embedding.
         """
-        response = openai.Embedding.create(
+        response = openai.embeddings.create(
             input=text,
             model=self.embedding_model
         )
@@ -35,7 +35,7 @@ class OpenAIModel:
         :return: The transcribed text.
         """
         with open(audio_path, "rb") as audio_file:
-            transcript = openai.Audio.transcribe(self.transcription_model, audio_file)
+            transcript = openai.audio.transcriptions.create(self.transcription_model, audio_file)
         # Assuming the transcript is returned as a dictionary with a "text" key
         return transcript["text"]
 
