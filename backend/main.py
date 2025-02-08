@@ -175,18 +175,18 @@ async def select_tool(request: ToolSelectionRequest):
 @app.post("/resolve_dispute", response_model=DisputeResolutionResponse)
 async def resolve_dispute_endpoint(
     conversation_chain: str = Form(...),
-    pdf_file_user: UploadFile = File(...),
+    pdf_file_buyer: UploadFile = File(...),
     pdf_file_seller: UploadFile = File(...)
 ):
     """
     Endpoint to process the dispute using DisputeResolutionPipeline.
     """
-    temp_file1 = f"temp_{pdf_file_user.filename}"
+    temp_file1 = f"temp_{pdf_file_buyer.filename}"
     temp_file2 = f"temp_{pdf_file_seller.filename}"
     try:
         # Save the uploaded PDF files temporarily
         with open(temp_file1, "wb") as f1:
-            content1 = await pdf_file_user.read()
+            content1 = await pdf_file_buyer.read()
             f1.write(content1)
         
         with open(temp_file2, "wb") as f2:
