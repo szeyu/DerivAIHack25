@@ -10,3 +10,8 @@ first-commit:
 	@git add .
 	@git commit -m "$(message)"
 	@git push --set-upstream origin "$(branch)"
+
+commit:
+	@git add .
+	@git commit -m "$(message)"
+	@git push origin "$(branch)"
