@@ -28,24 +28,47 @@ class DeepSeekService:
         return self._make_api_call(prompt)
     
     def detect_fraud_signals(self, conversation):
-        """Analyzes text for potential fraud indicators."""
-        prompt = f"""
-        Analyze this conversation for potential fraud signals:
-        
-        {conversation}
-        
-        Output format:
-        - Suspicious Patterns:
-        - Risk Level (Low/Medium/High):
-        - Highlighted Words: [List of suspicious words/phrases]
-        """
-        
-        return self._make_api_call(prompt)
+        """Analyzes text for potential fraud indicators for both users."""
+        try:
+            prompt = f"""
+            Analyze this conversation for potential fraud signals from both buyer and seller.
+            Keep track of who says what and analyze each separately.
+
+            Conversation:
+            {conversation}
+
+            Output format (strictly follow this format):
+            BUYER ANALYSIS
+            Highlighted Words: word1, word2, word3
+            Suspicious Patterns: brief explanation
+            Risk Level: Low/Medium/High
+
+            SELLER ANALYSIS
+            Highlighted Words: word1, word2, word3
+            Suspicious Patterns: brief explanation
+            Risk Level: Low/Medium/High
+            """
+            
+            analysis = self._make_api_call(prompt)
+            
+            return {
+                "userA": {
+                    "name": "Buyer",
+                    "analysis": analysis.split("SELLER ANALYSIS")[0].replace("BUYER ANALYSIS", "").strip()
+                },
+                "userB": {
+                    "name": "Seller",
+                    "analysis": analysis.split("SELLER ANALYSIS")[1].strip()
+                }
+            }
+            
+        except Exception as e:
+            return {"error": str(e)}
     
     def find_similar_cases(self, current_summary, past_cases):
         """Finds similar past cases."""
         prompt = f"""
-        Compare this dispute summary with past cases:
+        Compare this dispute summary with past cases and output in simple format:
         
         Current Case:
         {current_summary}
@@ -53,10 +76,9 @@ class DeepSeekService:
         Past Cases:
         {json.dumps(past_cases, indent=2)}
         
-        Output format:
-        - Most Similar Cases (Top 3):
-        - Similarity Reasoning:
-        - Relevant Precedents:
+        Output format (strictly follow):
+        Most Similar Case: [single most relevant case]
+        Reasoning: [one sentence explanation]
         """
         
         return self._make_api_call(prompt)

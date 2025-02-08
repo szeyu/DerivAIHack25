@@ -230,8 +230,11 @@ async def get_dispute_summary(request: DisputeRequest):
     """Get AI-generated summary of dispute conversation."""
     try:
         summary = deepseek_service.generate_dispute_summary(request.conversation)
+        print("Summary request received:", request.conversation)  # Debug log
+        print("Summary response:", summary)  # Debug log
         return {"summary": summary}
     except Exception as e:
+        print("Error in summary:", str(e))  # Debug log
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/dispute/fraud-analysis")
@@ -247,11 +250,18 @@ async def get_fraud_analysis(request: DisputeRequest):
 async def get_similar_cases(request: SimilarCaseRequest):
     """Get similar past cases."""
     try:
-        similar_cases = deepseek_service.find_similar_cases(
+        similar = deepseek_service.find_similar_cases(
             request.current_summary,
             request.past_cases
         )
-        return {"similar_cases": similar_cases}
+        # Parse the response to match Admin.jsx structure
+        case_parts = similar.split("Reasoning: ")
+        return {
+            "similar_cases": {
+                "case": case_parts[0].replace("Most Similar Case: ", "").strip(),
+                "reasoning": case_parts[1].strip()
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

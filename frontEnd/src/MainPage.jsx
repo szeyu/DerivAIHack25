@@ -1,109 +1,137 @@
-import React, { useState, useRef } from 'react';
-import './MainPage.css';
-import boyImage from './assets/boy.png';
-import girlImage from './assets/girl.png';
+import React, { useRef } from "react";
+import { useChat } from "./context/ChatContext";
+import "./MainPage.css";
+import boyImage from "./assets/boy.png";
+import girlImage from "./assets/girl.png";
 
 const MainPage = () => {
-  const [message, setMessage] = useState("");
-  const [chat, setChat] = useState([]);
-  const [currentUser, setCurrentUser] = useState("User 1");
-  const [isAIActive, setIsAIActive] = useState(false);
-  const [user1PDF, setUser1PDF] = useState(null);
-  const [user2PDF, setUser2PDF] = useState(null);
-  const [currentStep, setCurrentStep] = useState('initial'); // initial, user1Upload, user2Upload, complete
-  const fileInputRef = useRef(null);
+  const {
+    message,
+    setMessage,
+    chat,
+    setChat,
+    currentUser,
+    setCurrentUser,
+    isAIActive,
+    setIsAIActive,
+    formattedConversation,
+    setFormattedConversation,
+  } = useChat();
 
   const sendMessage = () => {
     if (message.trim() === "") return;
-    setChat([...chat, { user: currentUser, text: message }]);
+
+    // Add message to chat display
+    const newMessage = { user: currentUser, text: message };
+    setChat([...chat, newMessage]);
+
+    // Format conversation
+    const formattedMessage = `\n    ${currentUser}: ${message}\n`;
+    console.log("Adding message:", formattedMessage); // Debug log
+    setFormattedConversation((prev) => {
+      const updated = prev + formattedMessage;
+      console.log("Updated conversation:", updated); // Debug log
+      return updated;
+    });
+
     setMessage("");
-    setCurrentUser(currentUser === "User 1" ? "User 2" : "User 1");
+    setCurrentUser(currentUser === "Buyer" ? "Seller" : "Buyer");
   };
 
-  const activateAI = () => {
+  const activateAI = async () => {
     setIsAIActive(true);
-    setChat([
-      ...chat,
-      { user: "AI", text: "Hello, since there's a conflict between both of you, I will help resolve it." },
-      { user: "AI", text: "User 1, please upload your PDF document for review.", type: "request-pdf", forUser: "User 1" }
-    ]);
-    setCurrentStep('user1Upload');
-  };
+    console.log("Activating AI with conversation:", formattedConversation); // Debug log
 
-  const handleFileUpload = (event, user) => {
-    const file = event.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      if (user === 'User 1') {
-        setUser1PDF(file);
-        setChat([
-          ...chat,
-          { user: "User 1", text: `Uploaded: ${file.name}`, type: "pdf-upload" },
-          { user: "AI", text: "Please click Submit to confirm your upload.", type: "upload-confirmation" }
-        ]);
-      } else {
-        setUser2PDF(file);
-        setChat([
-          ...chat,
-          { user: "User 2", text: `Uploaded: ${file.name}`, type: "pdf-upload" },
-          { user: "AI", text: "Please click Submit to confirm your upload.", type: "upload-confirmation" }
-        ]);
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (currentStep === 'user1Upload' && user1PDF) {
-      // Process User 1's PDF
-      const formData = new FormData();
-      formData.append('file', user1PDF);
-
-      try {
-        const response = await fetch('http://localhost:8000/markitdown', {
-          method: 'POST',
-          body: formData,
-        });
-        const result = await response.json(); 
-        console.log(result);
-
-        if (response.ok) {
-          setChat([
-            ...chat,
-            { user: "AI", text: "Thank you, User 1. Now, User 2, please upload your PDF document.", type: "request-pdf", forUser: "User 2" },
-            { user: "AI", text: `User 1's document converted to Markdown: ${result.markdown}`, type: "pdf-converted" }
-          ]);
-          setCurrentStep('user2Upload');
-        } else {
-          throw new Error(result.detail);
+    try {
+      // Call summary endpoint
+      const summaryResponse = await fetch(
+        "http://localhost:8000/api/dispute/summary",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ conversation: formattedConversation }),
         }
-      } catch (error) {
-        setChat([...chat, { user: "AI", text: "Error processing User 1's file." }]);
+      );
+
+      if (!summaryResponse.ok) {
+        throw new Error(`Summary API error: ${summaryResponse.status}`);
       }
-    } else if (currentStep === 'user2Upload' && user2PDF) {
-      // Process User 2's PDF
-      const formData = new FormData();
-      formData.append('file', user2PDF);
 
-      try {
-        const response = await fetch('http://localhost:8000/markitdown', {
-          method: 'POST',
-          body: formData,
-        });
-        const result = await response.json();
-        console.log(result);
+      const summaryData = await summaryResponse.json();
+      console.log("Summary Response:", summaryData);
 
-        if (response.ok) {
-          setChat([
-            ...chat,
-            { user: "AI", text: "Thank you both for uploading your documents. I will now review them.", type: "confirmation" },
-            { user: "AI", text: `User 2's document converted to Markdown: ${result.markdown}`, type: "pdf-converted" }
-          ]);
-          setCurrentStep('complete');
-        } else {
-          throw new Error(result.detail);
+      // Call fraud analysis endpoint
+      const fraudResponse = await fetch(
+        "http://localhost:8000/api/dispute/fraud-analysis",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ conversation: formattedConversation }),
         }
-      } catch (error) {
-        setChat([...chat, { user: "AI", text: "Error processing User 2's file." }]);
+      );
+
+      if (!fraudResponse.ok) {
+        throw new Error(`Fraud API error: ${fraudResponse.status}`);
       }
+
+      const fraudData = await fraudResponse.json();
+      console.log("Fraud Data:", fraudData); // Debug log
+
+      // For similar cases, we need the summary first
+      const similarResponse = await fetch(
+        "http://localhost:8000/api/dispute/similar-cases",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            current_summary: summaryData.summary,
+            past_cases: [
+              "Buyer sent payment, but the seller claimed not to receive it. After investigation, funds were delayed due to bank processing. Crypto was released after confirmation.",
+              "Buyer claimed they sent payment but provided fake proof. Seller reported fraud, and admin ruled in seller's favor.",
+              "Seller promised instant release but delayed without reason. Buyer opened a dispute, and the admin forced release.",
+              "Buyer disputed a trade because they changed their mind after payment. Admin rejected the refund request.",
+              "A buyer and seller argued about a 1-minute price fluctuation in a volatile market.",
+            ],
+          }),
+        }
+      );
+
+      const similarData = await similarResponse.json();
+      console.log("Similar Data:", similarData); // Debug log
+
+      // Store responses in localStorage for Admin.jsx to access
+      const disputeData = {
+        summary: summaryData.summary,
+        fraudAnalysis: fraudData.fraud_analysis,
+        similarCase: similarData.similar_cases,
+      };
+
+      console.log("Storing dispute data:", disputeData); // Debug log
+      localStorage.setItem("disputeData", JSON.stringify(disputeData));
+
+      // Add AI response to chat
+      setChat([
+        ...chat,
+        {
+          user: "AI",
+          text: "I've analyzed your dispute. An admin will review the case shortly.",
+        },
+      ]);
+    } catch (error) {
+      console.error("Error calling APIs:", error);
+      setChat([
+        ...chat,
+        {
+          user: "AI",
+          text: "There was an error processing your dispute. Please try again.",
+        },
+      ]);
     }
   };
 
@@ -114,17 +142,51 @@ const MainPage = () => {
 
         <div className="chat-messages">
           {chat.map((msg, index) => (
-            <div key={index} className={`message-row ${msg.user === "User 1" ? "" : msg.user === "User 2" ? "reverse" : "ai"}`}>
+            <div
+              key={index}
+              className={`message-row ${
+                msg.user === "Buyer"
+                  ? ""
+                  : msg.user === "Seller"
+                  ? "reverse"
+                  : "ai"
+              }`}
+            >
               <div className="profile-picture">
-              <img 
-                src={msg.user === "User 1" ? boyImage : msg.user === "User 2" ? girlImage : null} 
-                alt={msg.user === "User 1" ? "User 1" : msg.user === "User 2" ? "User 2" : "AI"} 
-                className={`profile-circle ${msg.user === "User 1" ? "user1" : msg.user === "User 2" ? "user2" : "ai"}`}
-              />
-
+                <img
+                  src={
+                    msg.user === "Buyer"
+                      ? boyImage
+                      : msg.user === "Seller"
+                      ? girlImage
+                      : null
+                  }
+                  alt={
+                    msg.user === "Buyer"
+                      ? "Buyer"
+                      : msg.user === "Seller"
+                      ? "Seller"
+                      : "AI"
+                  }
+                  className={`profile-circle ${
+                    msg.user === "Buyer"
+                      ? "user1"
+                      : msg.user === "Seller"
+                      ? "user2"
+                      : "ai"
+                  }`}
+                />
               </div>
-              
-              <div className={`message-bubble ${msg.user === "User 1" ? "user1" : msg.user === "User 2" ? "user2" : "ai"}`}>
+
+              <div
+                className={`message-bubble ${
+                  msg.user === "Buyer"
+                    ? "user1"
+                    : msg.user === "Seller"
+                    ? "user2"
+                    : "ai"
+                }`}
+              >
                 <p>{msg.text}</p>
                 {msg.type === "request-pdf" && (
                   <div className="pdf-upload-section">
@@ -132,10 +194,10 @@ const MainPage = () => {
                       type="file"
                       accept=".pdf"
                       onChange={(e) => handleFileUpload(e, msg.forUser)}
-                      style={{ display: 'none' }}
+                      style={{ display: "none" }}
                       ref={fileInputRef}
                     />
-                    <button 
+                    <button
                       className="upload-button"
                       onClick={() => fileInputRef.current.click()}
                     >
@@ -149,10 +211,7 @@ const MainPage = () => {
                   </div>
                 )}
                 {msg.type === "upload-confirmation" && (
-                  <button 
-                    className="submit-button"
-                    onClick={handleSubmit}
-                  >
+                  <button className="submit-button" onClick={handleSubmit}>
                     Submit
                   </button>
                 )}
@@ -176,13 +235,23 @@ const MainPage = () => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder={`Message as ${currentUser}...`}
-            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+            onKeyPress={(e) => e.key === "Enter" && sendMessage()}
             disabled={isAIActive}
           />
-          <button className="mic-button" onClick={() => { /* mic functionality */ }}>
+          <button
+            className="mic-button"
+            onClick={() => {
+              /* mic functionality */
+            }}
+          >
             🎤
           </button>
-          <button className="attachment-button" onClick={() => { /* attachment functionality */ }}>
+          <button
+            className="attachment-button"
+            onClick={() => {
+              /* attachment functionality */
+            }}
+          >
             📎
           </button>
           <button className="send-button" onClick={sendMessage}>

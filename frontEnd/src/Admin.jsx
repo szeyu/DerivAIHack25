@@ -1,29 +1,59 @@
-import React from 'react';
-import './Admin.css';
+import React, { useState, useEffect } from "react";
+import "./Admin.css";
 
 const Admin = () => {
-  const mockDispute = {
-    summary: "Payment dispute regarding service delivery timeline",
-    userA: {
-      name: "User A",
-      messages: ["I expected the delivery by last week", "This is unacceptable"],
-      riskScore: 0.2,
-    },
-    userB: {
-      name: "User B",
-      messages: ["We clearly stated 2-3 weeks processing time", "Let me check the status"],
-      riskScore: 0.1,
-    },
-    recommendations: [
-      "Review service agreement terms",
-      "Clarify delivery timeline expectations",
-      "Consider partial refund as goodwill gesture",
-    ],
+  const [disputeData, setDisputeData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Check localStorage for new dispute data
+    const checkForNewData = () => {
+      const storedData = localStorage.getItem("disputeData");
+      if (storedData) {
+        try {
+          setDisputeData(JSON.parse(storedData));
+          // Clear the data after reading
+          localStorage.removeItem("disputeData");
+        } catch (e) {
+          setError("Error parsing dispute data");
+        }
+      }
+    };
+
+    // Check immediately and set up interval
+    checkForNewData();
+    const interval = setInterval(checkForNewData, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const parseAnalysis = (analysis) => {
+    const lines = analysis.split("\n");
+    return {
+      highlightedWords: lines[0].replace("Highlighted Words: ", "").split(", "),
+      suspiciousPatterns: lines[1].replace("Suspicious Patterns: ", ""),
+      riskLevel: lines[2].replace("Risk Level: ", ""),
+    };
   };
+
+  if (!disputeData) {
+    return (
+      <div className="admin-container">
+        <div className="admin-content">
+          <div className="card dispute-summary">
+            <h2>Waiting for Dispute Data...</h2>
+            <p>No active disputes to review</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-container">
       <div className="admin-content">
+        {/* Dispute Summary Section */}
         <div className="card dispute-summary">
           <div className="card-header">
             <h2>Dispute Summary</h2>
@@ -32,57 +62,57 @@ const Admin = () => {
               Mark as Resolved
             </button>
           </div>
-          <p className="summary-text">{mockDispute.summary}</p>
+          <p className="summary-text">{disputeData.summary}</p>
         </div>
 
+        {/* Fraud Analysis Section */}
         <div className="users-grid">
-          <div className="card user-card">
-            <div className="user-header">
-              <span className="user-icon">👤</span>
-              <h3>{mockDispute.userA.name}</h3>
-            </div>
-            <div className="messages-container">
-              {mockDispute.userA.messages.map((msg, i) => (
-                <div key={i} className="message">
-                  {msg}
+          {["userA", "userB"].map((user) => {
+            const analysis = parseAnalysis(
+              disputeData.fraudAnalysis[user].analysis
+            );
+            return (
+              <div key={user} className="card user-card">
+                <div className="user-header">
+                  <span className="user-icon">👤</span>
+                  <h3>{disputeData.fraudAnalysis[user].name}</h3>
+                  <span
+                    className={`risk-badge ${analysis.riskLevel.toLowerCase()}`}
+                  >
+                    {analysis.riskLevel}
+                  </span>
                 </div>
-              ))}
-            </div>
-            <div className="risk-score">
-              <span className="alert-icon">⚠️</span>
-              Risk Score: {mockDispute.userA.riskScore * 100}%
-            </div>
-          </div>
-
-          <div className="card user-card">
-            <div className="user-header">
-              <span className="user-icon">👤</span>
-              <h3>{mockDispute.userB.name}</h3>
-            </div>
-            <div className="messages-container">
-              {mockDispute.userB.messages.map((msg, i) => (
-                <div key={i} className="message">
-                  {msg}
+                <div className="analysis-content">
+                  <div className="highlighted-words">
+                    {analysis.highlightedWords.map((word, i) => (
+                      <span key={i} className="word-tag">
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="patterns-box">
+                    <h4>Suspicious Patterns:</h4>
+                    <p>{analysis.suspiciousPatterns}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="risk-score">
-              <span className="alert-icon">⚠️</span>
-              Risk Score: {mockDispute.userB.riskScore * 100}%
-            </div>
-          </div>
+              </div>
+            );
+          })}
         </div>
 
+        {/* Similar Cases Section */}
         <div className="card recommendations">
-          <h3>Recommended Actions</h3>
-          <ul className="recommendations-list">
-            {mockDispute.recommendations.map((rec, i) => (
-              <li key={i} className="recommendation-item">
-                <span className="recommendation-number">{i + 1}</span>
-                <span className="recommendation-text">{rec}</span>
-              </li>
-            ))}
-          </ul>
+          <h3>Similar Case Analysis</h3>
+          <div className="similar-case-content">
+            <div className="case-box">
+              <h4>Most Similar Case:</h4>
+              <p>{disputeData.similarCase.case}</p>
+            </div>
+            <div className="reasoning-box">
+              <h4>Reasoning:</h4>
+              <p>{disputeData.similarCase.reasoning}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -5,21 +5,17 @@ def test_api():
     
     # Sample conversation for testing
     test_conversation = """
-    Buyer: Hi, I ordered a smartphone two weeks ago, but I still haven’t received it. The tracking number shows "in transit" with no updates. 
+    Buyer: I sent the payment 30 minutes ago, but you haven’t released the crypto. What’s going on?  
 
-    Seller: Hello, our estimated delivery time is 10-15 business days. Sometimes, there are delays with the courier. Please be patient.
+    Seller: I haven’t received the funds yet. Let me check my account.  
 
-    Buyer: This is ridiculous! You promised fast shipping, and now it’s taking forever. If I don’t get it in 2 days, I will file a chargeback.
+    Buyer: I sent proof already! If you don’t release it now, I’ll report you and leave negative feedback.  
 
-    Seller: Sir, I never promised "fast shipping." The listing clearly states the expected timeframe.
+    Seller: I see a pending transaction, but it’s not cleared. I can’t release the crypto yet.  
 
-    Buyer: That’s not what I remember! I demand a full refund right now, or I’ll report you for fraud.
+    Buyer: This is a scam! You’re just trying to take my money. I’ll dispute this with support.  
 
-    Seller: I understand your frustration, but I can only issue a refund if the item is confirmed lost. I will check with the courier.
-
-    Buyer: No! Just give me my money back, or I’ll leave bad reviews everywhere.
-
-    Seller: Let me verify the issue with the shipping company first. I’ll get back to you soon.
+    Seller: Let’s wait for confirmation first. If the payment clears, I’ll release immediately.  
 
     """
     
@@ -35,8 +31,11 @@ def test_api():
     
     print("Testing Similar Cases:")
     past_cases = [
-        "Delivery dispute resolved with partial refund due to delay",
-        "Customer complained about 3-week delivery time, resolved with explanation"
+        "Buyer sent payment, but the seller claimed not to receive it. After investigation, funds were delayed due to bank processing. Crypto was released after confirmation.",
+        "Buyer claimed they sent payment but provided fake proof. Seller reported fraud, and admin ruled in seller’s favor.",
+        "Seller promised instant release but delayed without reason. Buyer opened a dispute, and the admin forced release.",
+        "Buyer disputed a trade because they changed their mind after payment. Admin rejected the refund request.",
+        "A buyer and seller argued about a 1-minute price fluctuation in a volatile market."
     ]
     similar = service.find_similar_cases(summary, past_cases)
     print(similar)

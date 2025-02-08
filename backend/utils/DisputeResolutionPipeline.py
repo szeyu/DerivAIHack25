@@ -2,8 +2,8 @@ from dotenv import load_dotenv
 import openai
 from typing import Dict
 import os
-from ToolsSelectionAgent import ToolsSelectionAgent
-from OCRScanner import OCRScanner
+from .ToolsSelectionAgent import ToolsSelectionAgent
+from .OCRScanner import OCRScanner
 
 # -------------------------
 # Pipeline Class
