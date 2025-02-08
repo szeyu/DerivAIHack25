@@ -15,13 +15,14 @@ from utils.MarkitdownTool import MarkItDownConverter
 from utils.FraudDetection import FraudDetection
 from utils.OCRScanner import OCRScanner
 from utils.DisputeResolutionPipeline import DisputeResolutionPipeline  # Import your pipeline class
+from utils.deepseek_service import DeepSeekService
 
 app = FastAPI()
 
 # Allow CORS (adjust allowed origins as needed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],  # React dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +31,7 @@ app.add_middleware(
 # Instantiate the imported classes
 tool_agent = ToolsSelectionAgent()
 openai_model = OpenAIModel()
+deepseek_service = DeepSeekService()
 
 # -------------------------------
 # Pydantic Models for Requests and Responses
@@ -56,6 +58,13 @@ class DisputeResolutionResponse(BaseModel):
     resolution: str
     selected_tool: str
     escalate: bool
+
+class DisputeRequest(BaseModel):
+    conversation: str
+
+class SimilarCaseRequest(BaseModel):
+    current_summary: str
+    past_cases: list[str]
 
 # -------------------------------
 # FastAPI Endpoints
@@ -214,6 +223,36 @@ async def resolve_dispute_endpoint(
             os.remove(temp_file1)
         if os.path.exists(temp_file2):
             os.remove(temp_file2)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/dispute/summary")
+async def get_dispute_summary(request: DisputeRequest):
+    """Get AI-generated summary of dispute conversation."""
+    try:
+        summary = deepseek_service.generate_dispute_summary(request.conversation)
+        return {"summary": summary}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/dispute/fraud-analysis")
+async def get_fraud_analysis(request: DisputeRequest):
+    """Get fraud analysis of dispute conversation."""
+    try:
+        analysis = deepseek_service.detect_fraud_signals(request.conversation)
+        return {"fraud_analysis": analysis}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/dispute/similar-cases")
+async def get_similar_cases(request: SimilarCaseRequest):
+    """Get similar past cases."""
+    try:
+        similar_cases = deepseek_service.find_similar_cases(
+            request.current_summary,
+            request.past_cases
+        )
+        return {"similar_cases": similar_cases}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------------------

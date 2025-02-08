@@ -377,3 +377,19 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+from fastapi import FastAPI
+from pydantic import BaseModel
+from services.deepseek_service.py import get_ai_response
+
+app = FastAPI()
+
+class AIRequest(BaseModel):
+    conversation: str
+
+@app.post("/ai-summary")
+def ai_summary(request: AIRequest):
+    """Frontend calls this to get AI-generated fraud detection & summaries."""
+    return {"response": get_ai_response(request.conversation)}
+
+# Run with: uvicorn main:app --reload
