@@ -2,8 +2,8 @@ from dotenv import load_dotenv
 import openai
 from typing import Dict
 import os
-from ToolsSelectionAgent import ToolsSelectionAgent
-from OCRScanner import OCRScanner
+from .ToolsSelectionAgent import ToolsSelectionAgent
+from .OCRScanner import OCRScanner
 
 # -------------------------
 # Pipeline Class
@@ -27,92 +27,76 @@ class DisputeResolutionPipeline:
         self.tools_agent = ToolsSelectionAgent(model=model)
         self.ocr_scanner = OCRScanner()
         self.available_tools = {
-            "getBuyerBankStatement": "The buyer info is not enough and need to fetch and store the buyer's bank statement as a PDF again.",
-            "getSellerBankStatement": "The seller info is not enough and need to fetch and store the seller's bank statement as a PDF again.",
+            "getBuyerBankStatement": "The buyer does not upload a valid bank statement and the buyer info is not enough and need to fetch and store the buyer's bank statement as a PDF again.",
+            "getSellerBankStatement": "The buyer does not upload a valid bank statement and the seller info is not enough and need to fetch and store the seller's bank statement as a PDF again.",
             "notifyAndEscalate": "Automate notifications and escalate cases that require human intervention.",
+            "allGood": "Both parties are all good and the transaction is completed successfully.",
         }
 
     def resolve_dispute(self, conversation_chain: str, proof_buyer: str, proof_seller: str) -> str:
         """
-        Resolves a P2P dispute by analyzing proofs of transaction.
+        Resolves a P2P dispute by analyzing proofs of transaction and determines if an additional action (via a tool) is needed.
 
         Args:
             conversation_chain: All the input of the conversation between the two sides.
-            proof_1: The text content from OCR analysis of Proof of Transaction 1.
-            proof_2: The text content from OCR analysis of Proof of Transaction 2.
+            proof_buyer: The text content from OCR analysis of the Buyer's proof of transaction.
+            proof_seller: The text content from OCR analysis of the Seller's proof of transaction.
 
         Returns:
-            A string containing the resolution, or an escalation message.
+            A string containing a concise resolution in two sentences and a tool selection line.
         """
+
         prompt_template = """
-You are an Experienced Payment Fraud Analyst. You investigate suspicious transactions and chargebacks for a Peer-to-Peer (P2P) platform. Your goal is to efficiently resolve disputes by validating proofs of transfer and identifying fraudulent activity.
+    You are an Experienced Payment Fraud Analyst investigating suspicious transactions for a Peer-to-Peer (P2P) platform. Your goal is to efficiently resolve disputes by validating proofs of transfer and identifying fraudulent activity.
 
-Here's the information you have:
+    Here's the information you have:
 
-* Conversation Chain between Buyer and Seller:
-{conversation_chain}
+    * Conversation Chain between Buyer and Seller:
+    {conversation_chain}
 
-* Proof of Transfer (Buyer):
-{proof_buyer}
+    * Proof of Transfer (Buyer):
+    {proof_buyer}
 
-* Proof of Transfer (Seller):
-{proof_seller}
+    * Proof of Transfer (Seller):
+    {proof_seller}
 
-Follow these steps to analyze the situation and determine a fair resolution:
+    Follow these steps to analyze the situation and determine a fair resolution:
 
-1. Initial Assessment:
-    a. Based on the conversation, identify the dispute category if possible (e.g., "Buyer not paid", "Seller not released items", "Buyer underpaid", "Buyer overpaid").
-    b. Specify what information is most vital in each of the proofs based on the identified dispute category.
+    1. **Initial Assessment:**
+        - Identify the dispute category (e.g., "Buyer not paid", "Seller not released items", "Buyer underpaid", "Buyer overpaid") based on the conversation.
+        - Highlight which pieces of information are most vital in each proof.
 
-2. Proof Validation:
-    a. Validity Check: Assess the validity of each proof individually. Consider factors such as:
-        * Presence of expected fields (transaction ID, dates, amounts, sender/recipient information).
-        * Internal consistency (e.g., amounts matching the claimed transfer).
-        * Overall coherence and readability (limited OCR errors).
-        * Authenticity: Check for signs of tampering or forgery (e.g., inconsistent fonts, watermarks, unusual formatting).
-    b. Comparison: Compare the two proofs, focusing on:
-        * Transaction details (dates, amounts, IDs).
-        * Parties involved (sender/recipient).
-        * Any other relevant information.
-        * Consistency: Verify that the information on both proofs aligns with the claimed transaction details.
+    2. **Proof Validation:**
+        - **Validity Check:** Evaluate each proof for:
+            * Presence of expected fields (transaction ID, dates, amounts, sender/recipient information).
+            * Internal consistency (e.g., matching amounts).
+            * Coherence and readability (limited OCR errors).
+            * Signs of tampering or forgery (e.g., inconsistent fonts, watermarks, unusual formatting).
+        - **Comparison:** Compare both proofs regarding:
+            * Transaction details (dates, amounts, IDs).
+            * Parties involved.
+            * Overall consistency between the proofs.
 
-3. Resolution Determination: Based on your analysis, determine the appropriate resolution:
+    3. **Resolution Determination and Tool Selection:**
+        Based on your analysis, decide on the resolution and select an appropriate tool from the following:
 
-    a. **Scenario A**: Both proofs are valid, and all details match the dispute category.
-        * If 'Buyer not paid': "The proof provided by User 2 (seller) is validated. Releasing funds to the buyer, User 1."
-        * If 'Seller not released items': "The proof provided by User 1 (buyer) is validated. Releasing funds to the seller (releasing the items), User 2."
-        * If 'Buyer underpaid': "Underpayment confirmed. The buyer, User 1, needs to pay the remaining amount."
-        * If 'Buyer overpaid': "Overpayment confirmed. The buyer, User 1, will receive a refund."
-        * **Escalation Trigger**: Include the following statement at the end of your response: "Confirmed transaction and took action automatically. No human assistance needed."
+        - **getBuyerBankStatement:** Use this if the Buyer's provided document is invalid or insufficient and the buyer's bank statement must be fetched as a PDF again.
+        - **getSellerBankStatement:** Use this if the Seller's provided document is invalid or insufficient and the seller's bank statement must be fetched as a PDF again.
+        - **notifyAndEscalate:** Use this if conflicting details that require human intervention.
+        - **allGood:** Use this if both proofs are valid and consistent, and the transaction is completed successfully.
 
-    b. **Scenario B**: Both proofs are valid and in the correct format, but some details conflict.
-        * Resolution: "There are conflicting details between the two proofs provided by User 1 and User 2. Further review is required and needs human intervention."
-        * **Escalation Trigger**: Include the following statement at the end of your response: "Escalating to a human administrator due to conflicting details."
+    4. **Output Requirements:**
+        - Summarize your analysis and resolution in **two sentences**.
+        - End your response with a new line that specifies the selected tool in the exact format:
+        selected_tool: <tool>
+        where `<tool>` is one of: getBuyerBankStatement, getSellerBankStatement, notifyAndEscalate, or allGood.
 
-    c. **Scenario C**: Only one proof is valid and in the correct format.
-        * Resolution: Explain which proof is considered valid and why. Investigate the other proof for potential fraud. Recommend steps for the party with the invalid proof.
-        * **Escalation Trigger**: Include the following statement at the end of your response: "Escalating to a human administrator due to invalid documents."
+    5. **Fraud Monitoring:**
+        - Be alert to any signs of fraud, such as altered dates/times/amounts, mismatched sender/recipient info, inconsistent formatting, or any other suspicious anomalies.
 
-    d. **Scenario D**: One or more pieces of information are missing.
-        * Resolution: State what information is missing. Request that the user provide the missing requirements.
-        * **Escalation Trigger**: Include the following statement at the end of your response: "Escalating to a human administrator due to missing requirements."
+    Action Taken and Resolution:
+        """
 
-    e. **Scenario E**: Evidence of fraud or forgery detected in one or both proofs.
-        * Resolution: "Evidence of fraud/forgery detected in [specify which document]. Taking immediate action to protect the platform and its users. Freezing funds and accounts related to this transaction."
-        * **Escalation Trigger**: Include the following statement at the end of your response: "Escalating to a human administrator due to suspected fraud/forgery."
-
-4. Fraud Monitoring:
-    * Throughout your analysis, be vigilant for signs of fraud, including:
-        * Altered dates, times, or amounts.
-        * Inconsistent fonts or watermarks.
-        * Mismatched sender/recipient information.
-        * Unusual formatting or language.
-        * Any other suspicious anomalies.
-
-Generate a concise resolution based on your analysis, including specific actions taken and explanations.
-
-Action Taken and Resolution:
-"""
         prompt = prompt_template.format(
             conversation_chain=conversation_chain,
             proof_buyer=proof_buyer,

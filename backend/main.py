@@ -12,7 +12,7 @@ load_dotenv()
 from utils.ToolsSelectionAgent import ToolsSelectionAgent
 from utils.OpenAIModel import OpenAIModel
 from utils.MarkitdownTool import MarkItDownConverter
-from utils.FraudDetection import FraudDetection
+from utils.FraudDetection import FraudDetector
 from utils.OCRScanner import OCRScanner
 from utils.DisputeResolutionPipeline import DisputeResolutionPipeline  # Import your pipeline class
 
@@ -142,24 +142,41 @@ async def ocrscanner(file: UploadFile = File(...)):
             os.remove(temp_file)
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# Request/Response Models
+class FraudDetectionRequest(BaseModel):
+    text: str
+    warning_count: int = 0
+
+
+class FraudDetectionResponse(BaseModel):
+    status: str
+    message: str
+    warning_count: int
+    escalate: bool
+
 @app.post("/fraud_detection_firewall", response_model=FraudDetectionResponse)
-async def fraud_detection_firewall(request: FraudDetectionRequest):
+async def analyze_text(request: FraudDetectionRequest):
     """
-    API endpoint that evaluates user input using the FraudDetection system.
-    Returns "Fraud Detected" if sensitive content is found, otherwise "No Fraud".
+    Endpoint for fraud detection analysis
     """
     try:
-        # In this example, the llm function is a no-op lambda. Replace with your actual LLM call if needed.
-        response_text, warnings, escalate = FraudDetection.process_user_input(
-            user_input=request.text,
-            warning_count=request.warning_count,
-            llm=openai_model.llm  # Use your actual LLM integration
+        message, new_count, escalate = FraudDetector().analyze_text(
+            text=request.text,
+            warning_count=request.warning_count
         )
-        # Determine the result based on the response text
-        result = "Fraud Detected" if response_text.startswith("Warning:") else "No Fraud"
-        return FraudDetectionResponse(result=result, warning_count=warnings, escalate=escalate)
+        
+        return FraudDetectionResponse(
+            status="ALERT" if "Warning" in message else "CLEAN",
+            message=message,
+            warning_count=new_count,
+            escalate=escalate
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis error: {str(e)}"
+        )
 
 @app.post("/select_tool")
 async def select_tool(request: ToolSelectionRequest):

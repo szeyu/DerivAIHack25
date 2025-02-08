@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import './MainPage.css';
 import boyImage from './assets/boy.png';
 import girlImage from './assets/girl.png';
-import AudioRecording from './AudioRecording';  // Update the path if needed
+import AudioRecording from './AudioRecording';  
 
 
 const MainPage = () => {
@@ -10,31 +10,100 @@ const MainPage = () => {
   const [chat, setChat] = useState([]);
   const [currentUser, setCurrentUser] = useState("Buyer"); //start with Buyer
   const [isAIActive, setIsAIActive] = useState(false);
-  const [user1PDF, setUser1PDF] = useState(null);
-  const [user2PDF, setUser2PDF] = useState(null);
+  const [pdfBuyer, setPdfBuyer] = useState(null); 
+  const [pdfSeller, setPdfSeller] = useState(null); 
   const [buyerConversation, setBuyerConversation] = useState([]);  // New state for Buyer conversation
   const [sellerConversation, setSellerConversation] = useState([]); // New state for Seller conversation
   const [currentStep, setCurrentStep] = useState('initial');
   const fileInputRef = useRef(null);
   const [audioUrl, setAudioUrl] = useState(null); // Store the audio URL for playback
   const [isRecording, setIsRecording] = useState(false);
+  const [fraudDetected, setFraudDetected] = useState(false);
 
+  const checkFraud = async (text, currentWarningCount = 0) => {
+    const payload = { 
+        text,
+        warning_count: currentWarningCount // Use passed warning count instead of hardcoding
+    };
+    
+    try {
+        const response = await fetch('http://localhost:8000/fraud_detection_firewall', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log("Fraud check result:", result);
 
-  const sendMessage = () => {
+        // Return both the status and updated warning count
+        return {
+            status: result.status === 'ALERT' ? 'Fraud Detected' : 'No Fraud',
+            warningCount: result.warning_count,
+            escalate: result.escalate,
+            message: result.message
+        };
+
+    } catch (error) {
+        console.error("Fraud check error:", error);
+        return {
+            status: 'Error',
+            message: error.message,
+            warningCount: currentWarningCount,
+            escalate: false
+        };
+    }
+  };
+  
+
+  const formatAIText = (text) => {
+    // Replace **text** with <strong>text</strong>
+    let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Replace \n with <br /> for line breaks
+    formattedText = formattedText.replace(/\n/g, '<br />');
+  
+    return formattedText;
+  };
+
+  const sendMessage = async () => {
     if (message.trim() === "") return;
-
+  
+    // Check if a fraud issue is already flagged
+    if (fraudDetected) {
+      // Optionally, you might show a toast or alert here
+      return;
+    }
+  
+    // Call the fraud firewall before sending the message
+    const fraudResult = await checkFraud(message);
+    if (fraudResult.status === "Fraud Detected") {
+      setChat([
+        ...chat,
+        { user: "AI", text: "Warning: Fraud detected. Session terminated." }
+      ]);
+      // Prevent further input
+      setFraudDetected(true);
+      return;
+    }
+  
+    // Proceed normally if no fraud is detected
     const newMessage = { user: currentUser, text: message };
     setChat([...chat, newMessage]);
-
+  
     // Add the message to the respective conversation packet
     if (currentUser === "Buyer") {
       setBuyerConversation([...buyerConversation, newMessage]);
     } else {
       setSellerConversation([...sellerConversation, newMessage]);
     }
-
+  
     setMessage("");
-  };
+  };  
 
   const activateAI = () => {
     setIsAIActive(true);
@@ -43,7 +112,7 @@ const MainPage = () => {
       { user: "AI", text: "Hello, since there's a conflict between both of you, I will help resolve it." },
       { user: "AI", text: "Buyer, please upload your PDF document for review.", type: "request-pdf", forUser: "Buyer" }
     ]);
-    setCurrentStep('user1Upload');
+    setCurrentStep('buyerUpload');
     
     // Log the conversations when AI is activated
     console.log("Buyer Conversation:", buyerConversation);
@@ -55,14 +124,14 @@ const MainPage = () => {
     const file = event.target.files[0];
     if (file && file.type === 'application/pdf') {
       if (user === 'Buyer') {
-        setUser1PDF(file);
+        setPdfBuyer(file); 
         setChat([
           ...chat,
           { user: "Buyer", text: `Uploaded: ${file.name}`, type: "pdf-upload" },
           { user: "AI", text: "Please click Submit to confirm your upload.", type: "upload-confirmation" }
         ]);
       } else {
-        setUser2PDF(file);
+        setPdfSeller(file); // Renamed from user2PDF to pdfSeller
         setChat([
           ...chat,
           { user: "Seller", text: `Uploaded: ${file.name}`, type: "pdf-upload" },
@@ -72,62 +141,153 @@ const MainPage = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (currentStep === 'user1Upload' && user1PDF) {
-      // Process User 1's PDF
-      const formData = new FormData();
-      formData.append('file', user1PDF);
+// In the component's top variables, replace:
+// const formData = new FormData();
+// With:
+const formDataRef = useRef(new FormData());
 
-      try {
-        const response = await fetch('http://localhost:8000/markitdown', {
-          method: 'POST',
-          body: formData,
-        });
-        const result = await response.json();
-        console.log(result);
-
-        if (response.ok) {
-          setChat([
-            ...chat,
-            { user: "AI", text: "Thank you, Buyer. Now, Seller, please upload your PDF document.", type: "request-pdf", forUser: "Seller" },
-            { user: "AI", text: `Buyer’s document converted to Markdown: ${result.markdown}`, type: "pdf-converted" }
-          ]);
-          setCurrentStep('user2Upload');
-        } else {
-          throw new Error(result.detail);
-        }
-      } catch (error) {
-        setChat([...chat, { user: "AI", text: "Error processing Buyer’s file." }]);
+// Update handleSubmit function:
+const handleSubmit = async () => {
+  // Check if both PDFs have been submitted.
+  if (pdfBuyer && pdfSeller) {
+    // Both files are available—proceed to send the data to the server.
+    setCurrentStep('sendingDataToServer');
+    // Add a chat message indicating that data is being sent (you can display a loading circle in your UI when currentStep is "sendingDataToServer")
+    setChat([
+      ...chat,
+      { 
+        user: "AI", 
+        text: "Sending data to the server, please wait...", 
+        type: "loading" 
       }
-    } else if (currentStep === 'user2Upload' && user2PDF) {
-      // Process Seller's PDF
-      const formData = new FormData();
-      formData.append('file', user2PDF);
+    ]);
 
-      try {
-        const response = await fetch('http://localhost:8000/markitdown', {
-          method: 'POST',
-          body: formData,
-        });
+    // Append both PDFs and conversation chain to the FormData.
+    formDataRef.current.append('pdf_file_buyer', pdfBuyer);
+    formDataRef.current.append('pdf_file_seller', pdfSeller);
+    formDataRef.current.append('conversation_chain', JSON.stringify([...buyerConversation, ...sellerConversation]));
+
+    // Debug: Log FormData entries.
+    for (let [key, value] of formDataRef.current.entries()) {
+      console.log(key, value);
+    }
+
+    try {
+      console.log("Sending form data to the server...");
+      const response = await fetch('http://localhost:8000/resolve_dispute', {
+        method: 'POST',
+        body: formDataRef.current,
+      });
+
+      if (response.ok) {
         const result = await response.json();
-        console.log(result);
+        console.log("Server response:", result);
 
-        if (response.ok) {
+        // Process the response based on the selected tool.
+        if (result.selected_tool === "getBuyerBankStatement") {
           setChat([
             ...chat,
-            { user: "AI", text: "Thank you both for uploading your documents. I will now review them.", type: "confirmation" },
-            { user: "AI", text: `Seller’s document converted to Markdown: ${result.markdown}`, type: "pdf-converted" }
+            { 
+              user: "AI", 
+              text: "Buyer, your bank statement info is insufficient. Please upload your bank statement PDF again.", 
+              type: "request-pdf", 
+              forUser: "Buyer" 
+            }
+          ]);
+          setCurrentStep('buyerUpload');
+        } else if (result.selected_tool === "getSellerBankStatement") {
+          setChat([
+            ...chat,
+            { 
+              user: "AI", 
+              text: formatAIText(result.resolution), 
+              type: "resolution" 
+            },
+            { 
+              user: "AI", 
+              text: "Seller, your bank statement info is insufficient. Please upload your bank statement PDF again.", 
+              type: "request-pdf", 
+              forUser: "Seller" 
+            }
+          ]);
+          setCurrentStep('sellerUpload');
+        } else if (result.selected_tool === "notifyAndEscalate") {
+          setChat([
+            ...chat,
+            { 
+              user: "AI", 
+              text: formatAIText(result.resolution), 
+              type: "resolution" 
+            },
+            { 
+              user: "AI", 
+              text: "The case is being escalated and a human administrator has been notified." 
+            }
+          ]);
+          setCurrentStep('complete');
+        } else if (result.selected_tool === "allGood") {
+          setChat([
+            ...chat,
+            { 
+              user: "AI", 
+              text: "Both parties are all good and the transaction is completed successfully." 
+            }
           ]);
           setCurrentStep('complete');
         } else {
-          throw new Error(result.detail);
+          // Default resolution if no specific tool is selected.
+          setChat([
+            ...chat,
+            { 
+              user: "AI", 
+              text: "Thank you both for uploading your documents. I will now review them.", 
+              type: "confirmation" 
+            },
+            { 
+              user: "AI", 
+              text: formatAIText(result.resolution), 
+              type: "resolution" 
+            }
+          ]);
+          setCurrentStep('complete');
         }
-      } catch (error) {
-        setChat([...chat, { user: "AI", text: "Error processing Seller’s file." }]);
+      } else {
+        throw new Error(await response.text());
       }
+    } catch (error) {
+      console.error("Error processing Seller’s file:", error);
+      setChat([...chat, { user: "AI", text: "Error processing Seller’s file." }]);
     }
-  };
+  } else {
+    // If one or both PDFs are missing, prompt the respective party to upload the missing file.
+    if (!pdfBuyer) {
+      setChat([
+        ...chat,
+        { 
+          user: "AI", 
+          text: "Buyer, please upload your PDF document.", 
+          type: "request-pdf", 
+          forUser: "Buyer" 
+        }
+      ]);
+      setCurrentStep('buyerUpload');
+    }
+    if (!pdfSeller) {
+      setChat([
+        ...chat,
+        { 
+          user: "AI", 
+          text: "Seller, please upload your PDF document.", 
+          type: "request-pdf", 
+          forUser: "Seller" 
+        }
+      ]);
+      setCurrentStep('sellerUpload');
+    }
+  }
+};
 
+  
   const sendAudio = (audioBlob) => {
     const audioUrl = URL.createObjectURL(audioBlob);  // Create a URL from the audio blob
     
@@ -142,24 +302,6 @@ const MainPage = () => {
     setChat([...chat, newMessage]);
   };
   
-
-    // If you need to send the audio to a server, you can do it here.
-    // const formData = new FormData();
-    // formData.append('audio', audioBlob);
-
-    // Example to send the audio to the server
-    // fetch('http://localhost:8000/upload-audio', {
-    //   method: 'POST',
-    //   body: formData,
-    // })
-    //   .then(response => response.json())
-    //   .then(result => {
-    //     console.log('Audio uploaded successfully:', result);
-    //   })
-    //   .catch(error => {
-    //     console.error('Error uploading audio:', error);
-    //   });
-
   // Toggle user role manually
   const toggleUserRole = () => {
     setCurrentUser(currentUser === "Buyer" ? "Seller" : "Buyer");
@@ -182,7 +324,7 @@ const MainPage = () => {
               </div>
 
               <div className={`message-bubble ${msg.user === "Buyer" ? "buyer" : msg.user === "Seller" ? "seller" : "ai"}`}>
-                <p>{msg.text}</p>
+                <p dangerouslySetInnerHTML={{ __html: msg.text }}></p>
                 {msg.type === "request-pdf" && (
                   <div className="pdf-upload-section">
                     <input
@@ -240,17 +382,14 @@ const MainPage = () => {
             onChange={(e) => setMessage(e.target.value)}
             placeholder={`Message as ${currentUser}...`}
             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-            disabled={isAIActive}
+            disabled={isAIActive || fraudDetected}
           />
-             {/* <button className="mic-button">
-            🎤
-          </button> */}
           <AudioRecording onStopRecording={sendAudio} />
 
           <button className="attachment-button" onClick={() => { /* attachment functionality */ }}>
             📎
           </button>
-          <button className="send-button" onClick={sendMessage}>
+          <button className="send-button" onClick={sendMessage} disabled={isAIActive || fraudDetected}>
             Send
           </button>
           <button className={`role-button ${currentUser === "Buyer" ? "buyer" : "seller"}`} 

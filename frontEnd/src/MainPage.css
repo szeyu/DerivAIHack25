@@ -140,8 +140,11 @@ html, body {
 
 .message-bubble.ai {
     background-color: rgba(237, 236, 227, 0.9);
-    text-align: center;
+    text-align: left;
     max-width: 80%;
+    max-height: 200px;  /* Set the desired max height */
+    overflow-y: auto;   /* Enable vertical scrolling if content overflows */
+    padding: 10px;      /* Optional: add padding for better readability */
 }
 
 .message-bubble p {
