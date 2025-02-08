@@ -1,0 +1,19 @@
+.nav {
+  @apply bg-gradient-to-r from-violet-500 via-blue-500 to-cyan-500 p-4 shadow-lg;
+}
+
+.navContent {
+  @apply max-w-6xl mx-auto flex justify-between items-center;
+}
+
+.logo {
+  @apply text-white font-semibold text-xl hover:text-blue-100 transition-colors;
+}
+
+.navLinks {
+  @apply space-x-4;
+}
+
+.navLink {
+  @apply text-white hover:text-blue-100 transition-colors;
+}
