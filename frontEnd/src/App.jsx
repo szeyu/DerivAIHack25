@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import MainPage from './MainPage';
 import Admin from './Admin';
 import './App.css';
+import Alerts from './Alerts';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Routes>
             <Route path="/" element={<MainPage />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/alerts" element={<Alerts />} />
           </Routes>
         </div>
       </div>
