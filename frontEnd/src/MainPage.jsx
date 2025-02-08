@@ -48,6 +48,7 @@ const MainPage = () => {
     // Log the conversations when AI is activated
     console.log("Buyer Conversation:", buyerConversation);
     console.log("Seller Conversation:", sellerConversation);
+    //sending to main.py, conversation_chain: str = Form(...), 
   };
 
   const handleFileUpload = (event, user) => {

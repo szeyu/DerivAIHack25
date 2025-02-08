@@ -174,9 +174,10 @@ async def select_tool(request: ToolSelectionRequest):
 
 @app.post("/resolve_dispute", response_model=DisputeResolutionResponse)
 async def resolve_dispute_endpoint(
-    conversation_chain: str = Form(...),
-    pdf_file1: UploadFile = File(...),
-    pdf_file2: UploadFile = File(...)
+    conversation_chain: str = Form(...), 
+    #adding buyerConversation and sellerConversation all tgt no matter its order (etc. seller: ....\nbuyer:......)
+    pdf_file1: UploadFile = File(...), #sending the pdf files as form data
+    pdf_file2: UploadFile = File(...) #sending the pdf files as form data
 ):
     """
     Endpoint to process the dispute using DisputeResolutionPipeline.
