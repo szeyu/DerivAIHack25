@@ -1,3 +1,4 @@
+from typing import Optional
 import openai
 import os
 from dotenv import load_dotenv
@@ -38,6 +39,14 @@ class OpenAIModel:
         # Assuming the transcript is returned as a dictionary with a "text" key
         return transcript["text"]
 
+    def join_content(self, speech_text: str, user_text: str, image_text: str, video_text: Optional[str] = None) -> str:
+        """
+        Join the content of the provided texts, ignoring any empty texts.
+        """
+        texts = [speech_text, user_text, image_text, video_text]
+        non_empty_texts = [text for text in texts if text]
+        return " ".join(non_empty_texts)
+
 # Example usage:
 if __name__ == "__main__":
     model = OpenAIModel()
@@ -51,3 +60,11 @@ if __name__ == "__main__":
     # audio_path = "path_to_audio_file.wav"
     # transcription = model.transcribe_audio(audio_path)
     # print("Transcription:", transcription)
+
+    # # Example: Join content
+    # speech_text = "This is speech text."
+    # user_text = "This is user text."
+    # image_text = ""
+    # video_text = "This is video text."
+    # joined_text = model.join_content(speech_text, user_text, image_text, video_text)
+    # print("Joined Text:", joined_text)
