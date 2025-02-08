@@ -1,3 +1,4 @@
+from typing import Optional
 import openai
 import os
 from dotenv import load_dotenv
@@ -19,7 +20,7 @@ class OpenAIModel:
         :param text: The text to embed.
         :return: A list of floating point numbers representing the embedding.
         """
-        response = openai.Embedding.create(
+        response = openai.embeddings.create(
             input=text,
             model=self.embedding_model
         )
@@ -34,9 +35,17 @@ class OpenAIModel:
         :return: The transcribed text.
         """
         with open(audio_path, "rb") as audio_file:
-            transcript = openai.Audio.transcribe(self.transcription_model, audio_file)
+            transcript = openai.audio.transcriptions.create(self.transcription_model, audio_file)
         # Assuming the transcript is returned as a dictionary with a "text" key
         return transcript["text"]
+
+    def join_content(self, speech_text: str, user_text: str, image_text: str, video_text: Optional[str] = None) -> str:
+        """
+        Join the content of the provided texts, ignoring any empty texts.
+        """
+        texts = [speech_text, user_text, image_text, video_text]
+        non_empty_texts = [text for text in texts if text]
+        return " ".join(non_empty_texts)
 
 # Example usage:
 if __name__ == "__main__":
@@ -51,3 +60,11 @@ if __name__ == "__main__":
     # audio_path = "path_to_audio_file.wav"
     # transcription = model.transcribe_audio(audio_path)
     # print("Transcription:", transcription)
+
+    # # Example: Join content
+    # speech_text = "This is speech text."
+    # user_text = "This is user text."
+    # image_text = ""
+    # video_text = "This is video text."
+    # joined_text = model.join_content(speech_text, user_text, image_text, video_text)
+    # print("Joined Text:", joined_text)

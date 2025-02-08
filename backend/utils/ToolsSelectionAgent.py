@@ -40,8 +40,9 @@ class ToolsSelectionAgent:
 if __name__ == "__main__":
     agent = ToolsSelectionAgent()
     available_tools = {
-        "getBuyerBankStatement": "Fetch and store the buyer's bank statement as a PDF.",
-        "getSellerBankStatement": "Fetch and store the seller's bank statement as a PDF."
+        "getBuyerBankStatement": "The buyer info is not enough and need to fetch and store the buyer's bank statement as a PDF again.",
+        "getSellerBankStatement": "The seller info is not enough and need to fetch and store the seller's bank statement as a PDF again.",
+        "notifyAndEscalate": "Automate notifications and escalate cases that require human intervention.",
     }
     context = "The buyer needs to upload their bank statement."
     selected_tool = agent.select_tool(context, available_tools)
