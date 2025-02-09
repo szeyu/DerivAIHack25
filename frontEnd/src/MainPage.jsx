@@ -40,96 +40,36 @@ const MainPage = () => {
 
   const activateAI = async () => {
     setIsAIActive(true);
-    console.log("Activating AI with conversation:", formattedConversation); // Debug log
+    console.log("Fetching test data from API");
 
     try {
-      // Call summary endpoint
-      const summaryResponse = await fetch(
-        "http://localhost:8000/api/dispute/summary",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ conversation: formattedConversation }),
-        }
-      );
-
-      if (!summaryResponse.ok) {
-        throw new Error(`Summary API error: ${summaryResponse.status}`);
+      const response = await fetch('http://localhost:8000/api/test-dispute-data');
+      if (!response.ok) {
+        throw new Error('Failed to fetch test data');
       }
 
-      const summaryData = await summaryResponse.json();
-      console.log("Summary Response:", summaryData);
-
-      // Call fraud analysis endpoint
-      const fraudResponse = await fetch(
-        "http://localhost:8000/api/dispute/fraud-analysis",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ conversation: formattedConversation }),
-        }
-      );
-
-      if (!fraudResponse.ok) {
-        throw new Error(`Fraud API error: ${fraudResponse.status}`);
-      }
-
-      const fraudData = await fraudResponse.json();
-      console.log("Fraud Data:", fraudData); // Debug log
-
-      // For similar cases, we need the summary first
-      const similarResponse = await fetch(
-        "http://localhost:8000/api/dispute/similar-cases",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            current_summary: summaryData.summary,
-            past_cases: [
-              "Buyer sent payment, but the seller claimed not to receive it. After investigation, funds were delayed due to bank processing. Crypto was released after confirmation.",
-              "Buyer claimed they sent payment but provided fake proof. Seller reported fraud, and admin ruled in seller's favor.",
-              "Seller promised instant release but delayed without reason. Buyer opened a dispute, and the admin forced release.",
-              "Buyer disputed a trade because they changed their mind after payment. Admin rejected the refund request.",
-              "A buyer and seller argued about a 1-minute price fluctuation in a volatile market.",
-            ],
-          }),
-        }
-      );
-
-      const similarData = await similarResponse.json();
-      console.log("Similar Data:", similarData); // Debug log
-
-      // Store responses in localStorage for Admin.jsx to access
-      const disputeData = {
-        summary: summaryData.summary,
-        fraudAnalysis: fraudData.fraud_analysis,
-        similarCase: similarData.similar_cases,
-      };
-
-      console.log("Storing dispute data:", disputeData); // Debug log
-      localStorage.setItem("disputeData", JSON.stringify(disputeData));
+      const testData = await response.json();
+      console.log("Received test data:", testData);
+      
+      // Store the data in localStorage for Admin.jsx
+      localStorage.setItem("disputeData", JSON.stringify(testData));
 
       // Add AI response to chat
       setChat([
         ...chat,
         {
           user: "AI",
-          text: "I've analyzed your dispute. An admin will review the case shortly.",
+          text: "Analysis complete. Check admin panel for details.",
         },
       ]);
+
     } catch (error) {
-      console.error("Error calling APIs:", error);
+      console.error("Error fetching test data:", error);
       setChat([
         ...chat,
         {
           user: "AI",
-          text: "There was an error processing your dispute. Please try again.",
+          text: "Error analyzing dispute. Please try again.",
         },
       ]);
     }

@@ -16,6 +16,7 @@ from utils.FraudDetection import FraudDetection
 from utils.OCRScanner import OCRScanner
 from utils.DisputeResolutionPipeline import DisputeResolutionPipeline  # Import your pipeline class
 from utils.deepseek_service import DeepSeekService
+from utils.test_api import get_test_data
 
 app = FastAPI()
 
@@ -264,6 +265,10 @@ async def get_similar_cases(request: SimilarCaseRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/test-dispute-data")
+async def get_dispute_test_data():
+    return get_test_data()
 
 # -------------------------------
 # To run the FastAPI server:
