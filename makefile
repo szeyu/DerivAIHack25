@@ -7,3 +7,8 @@ commit:
 pull:
 	@git pull origin backend
 
+docker-build:
+	docker compose up --build
+
+docker-down:
+	docker compose down
